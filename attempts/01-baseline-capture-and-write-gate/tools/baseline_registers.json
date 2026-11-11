@@ -1,0 +1,88 @@
+{
+  "_source": "nv-uefi-unlocker/docs/blackwell-gb20x-status.md §1 (2026-11-04 capture, driver 615.71.10, Linux 6.12.113, nvidia-bound)",
+  "_note": "Reference values only. Compare new captures against these; flag any divergence as notable in the report, don't just restate the table.",
+  "_TARGET_HARDWARE": {
+    "card": "RTX 5080 (desktop)",
+    "die": "GB203",
+    "pci_device_id": "10de:2c02",
+    "WARNING_do_not_confuse_with": {
+      "GB203M": "This is the MOBILE/laptop variant, a DIFFERENT device ID range (reported ~10de:2c2c in unconfirmed leaked lists, separate from desktop 2c0x). The 'GB203M' row in this file's 'cards' section is NOT this user's chip -- it's the closest previously-captured relative, not the same part.",
+      "GB202": "RTX 5090's die. Different, larger die -- not this card.",
+      "GB206": "RTX 5060 Ti's die. Different, smaller die -- not this card."
+    },
+    "implication": "No prior capture in this file or in cross_repo_findings.md is actually from a desktop GB203 (10de:2c02). This user's own run may be the FIRST public read-only capture of this specific die. Treat it as potentially novel data worth comparing against GB203M/GB202/GB206 (same FEAT block architecture expected, per §1 of the status doc showing byte-identical values across GB206/GB202/GB203M) -- but flag explicitly in the report if desktop-GB203 values diverge from the GB203M/GB202/GB206 baseline in this file, since that would be new information, not noise. Never silently relabel this user's capture as 'the GB203M data' or assume identity without saying so."
+  },
+  "cards": {
+    "GB206_5060Ti_10de_2d04": {
+      "PMC_BOOT_0": "0x1b6000a1",
+      "FUSE_SS_FMLA16": 0,
+      "FUSE_SS_FMLA32": 3,
+      "FUSE_SS_IMLA1": 3,
+      "FUSE_SS_IMLA2": 3,
+      "FUSE_SS_IMLA4": 3,
+      "FUSE_FEAT_OVR_DIS": 0,
+      "FUSE_EN_SW_OVERRIDE": 0,
+      "FUSE_SS_PLM": "0xfffffbff",
+      "FEAT_OVR_PLM": "0xfffffb8f",
+      "FEAT_READOUT_1": "0x00c36180",
+      "FEAT_READOUT_0": "0x00000233",
+      "FEAT_OVR_ECC": "0x00888888",
+      "FEAT_OVR_ECC_1": "0xaa2a2aaa",
+      "SECURE_FEAT_OVR_QUADRO_WR_SEC": 2,
+      "SM_ISSUE_RATE_MODIFIER": 5,
+      "write_test": "SS0/SS1/PLM write attempted, 0/3 accepted, readback unchanged"
+    },
+    "GB202_5090_10de_2bxx": {
+      "PMC_BOOT_0": "0x21120000",
+      "FUSE_SS_FMLA32": 3,
+      "FUSE_SS_IMLA1": 3,
+      "FUSE_SS_IMLA2": 3,
+      "FUSE_SS_IMLA4": 3,
+      "FEAT_OVR_PLM": "0xfffffb8f",
+      "FEAT_READOUT_1": "0x00c36180",
+      "FEAT_READOUT_0": "0x00000233",
+      "FEAT_OVR_ECC": "0x00888888",
+      "FEAT_OVR_ECC_1": "0x002a2aaa",
+      "SECURE_FEAT_OVR_QUADRO_WR_SEC": 2,
+      "SM_ISSUE_RATE_MODIFIER": 5,
+      "write_test": "SS0/SS1/PLM write attempted, 0/3 accepted, readback unchanged"
+    },
+    "GB203M_laptop": {
+      "PMC_BOOT_0": "0x1b3000a1",
+      "FUSE_SS_FMLA32": 3,
+      "FUSE_SS_IMLA1": 3,
+      "FUSE_SS_IMLA2": 3,
+      "FUSE_SS_IMLA4": 3,
+      "FUSE_SS_PLM": "0xfffffbff",
+      "FEAT_OVR_PLM": "0xfffffb8f",
+      "FEAT_READOUT_1": "0x00c36180",
+      "write_test": "SS0/SS1/PLM write attempted, 0/3 accepted, readback unchanged"
+    },
+    "GB202_RTX_PRO_6000_10de_2bb1_unlocked_sku": {
+      "note": "Same die as 5090, different fuse config shipped from factory. Proves segmentation is fuse/firmware, not silicon.",
+      "FEAT_READOUT_1": "0x00000000",
+      "BF16_to_FP32_measured_TFLOPS": 518.0,
+      "FP16_to_FP16_measured_TFLOPS": 515.0,
+      "FEAT_OVR_PLM": "0xfffffb8f (still PL3-write-only, same gate, just never exercised)"
+    }
+  },
+  "register_map": {
+    "FEAT_block_base": "0x823xxx (Blackwell; NOT the same as Turing's 0x4096xx)",
+    "FEAT_overlay_words": ["0x823800","0x823804","0x823808","0x82380C","0x823810","0x823814","0x823818","0x82381C","0x823820","0x823824","0x823828","0x82382C"],
+    "rate_fuses": ["0x8207D4","0x8207D8","0x8207DC","0x8207E0","0x8207E4","0x8207E8","0x8207EC","0x82059C","0x820224"],
+    "override_gates_enables": ["0x8203F0", "0x820040", "0x8200FC (FUSE_SS_PLM, NOT the live gate)"],
+    "side_evidence": ["0x82038C (Quadro secure write)", "0x504204 (inert modifier)", "0x8403C4 (SEC2 PLM, DMEM 0x8401c0/c4 real port, first 8 KiB all zero)"]
+  },
+  "decoding_rules": [
+    "FEAT_READOUT_1 field offsets are NON-contiguous: 0,3,7,10,13,16,19,22,28 (bit6 and bits 27:25 are gaps). The naive 'nine contiguous 3-bit fields' decoder used for Ampere/Ada is WRONG here and will misdecode 0x00c36180.",
+    "On Blackwell, selector value 3 measures as ~half rate (not the 1/8 the public ctrl2080gr.h enum implies for older chips). Measured: FMLA32=3 gives ~48.33 TFLOPS at stock 180W vs ~86.27 TFLOPS theoretical ceiling, ~1.79x gap.",
+    "FUSE_EN_SW_OVERRIDE=0 does NOT mean unclamped -- it only governs CTRL_OPT floorsweep, not the rate selector. Both the 170HX and 4090 unlocked successfully while this fuse was 0.",
+    "FUSE_SS_PLM (0x8200FC) is NOT the live write gate -- FEAT_OVR_PLM (0x823804) is. FLR resets FUSE_SS_PLM to 0x80842bcf (transiently equal to FEAT_OVR_PLM) before it re-locks to 0xfffffbff.",
+    "Nonzero SS0/SS1 does NOT mean unlocked. Enable bits (nibble bit 3) are clear at factory default; a nonzero word is pre-driver shadow state that can vary boot-to-boot but is stable within one boot. The only valid unlock judgement is SS0==0x88888888 && SS1==0x8."
+  ],
+  "architecture_fact": {
+    "ada_ampere_chain": "... -> SEC2 (signed Booter, has the exploitable DMA-overflow-into-stack bug) -> GSP-RM",
+    "blackwell_chain": "FSP (ROM, PL3) -> GSP BootROM (ROM, PL3) -> FMC (host-supplied, signed+encrypted, PL3) -> GSP-RM (PL2)",
+    "implication": "No SEC2 stage exists on Blackwell. The vulnerability class that broke Turing/Ampere/Ada (signed Booter stack overflow -> ROP -> privileged PLM write) has no equivalent component to target."
+  }
+}

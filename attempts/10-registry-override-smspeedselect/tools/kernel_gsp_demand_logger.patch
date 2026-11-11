@@ -1,0 +1,22 @@
+--- a/src/nvidia/src/kernel/gpu/gsp/kernel_gsp.c
++++ b/src/nvidia/src/kernel/gpu/gsp/kernel_gsp.c
+@@
+     // ... real osPackageRegistry() call that builds the table actually
+     // sent to GSP-RM happens just above this point in the real function ...
++
++    /* GU_DEMAND_LOG instrumentation -- added to answer one question:
++     * does a given NVreg_RegistryDwords key actually get packaged and
++     * sent to GSP-RM, with the value we think we set? */
++    {
++        NvU32 gu_i;
++        PACKED_REGISTRY_TABLE *gu_t = pKernelGsp->pRegTable;
++        const char *gu_base = (const char *)gu_t;
++        NV_PRINTF(LEVEL_ERROR, "GU_DEMAND_LOG: packaged registry table, numEntries=%u size=%u\n",
++                   gu_t->numEntries, gu_t->size);
++        for (gu_i = 0; gu_i < gu_t->numEntries; gu_i++) {
++            PACKED_REGISTRY_ENTRY *gu_e = &gu_t->entries[gu_i];
++            const char *gu_name = gu_base + gu_e->nameOffset;
++            if (gu_e->type == REGISTRY_TABLE_ENTRY_TYPE_DWORD)
++                NV_PRINTF(LEVEL_ERROR, "GU_DEMAND_LOG: DWORD key=%s value=0x%x\n", gu_name, gu_e->data);
++        }
++    }
