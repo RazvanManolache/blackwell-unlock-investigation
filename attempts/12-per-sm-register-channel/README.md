@@ -100,6 +100,58 @@ sweep didn't find.
 the array base address is a genuinely separate unknown, not findable by
 further brute-forcing at these specific addresses.
 
+## 12c. Ghidra data-flow trace for the array's base address (update 2026-11-12/13)
+
+**Objective:** 12a/12b ruled out brute-forcing the array at the wrong base
+address; separate rounds of corpus-wide textual/regex search for the
+addressing computation's *shape* (`base + group*stride + subgroup*stride`)
+had already come up empty. The honestly-scoped next step: real Ghidra
+data-flow/cross-reference analysis starting from the actual `GR_CTX_SM`
+regType constant, not textual pattern matching.
+
+**Method:** queried the saved, fully-analyzed Ghidra project directly
+(not a flat-text grep) for references to the `GR_CTX_SM` constant and for
+the real entry point of the function believed to be the client-facing
+`EXEC_REG_OPS` RPC handler.
+
+**Result — a real methodology correction, then a sharper wall:**
+
+1. `regType` is a **bitmask**, not a sequential enum — every prior
+   switch/case-shaped search in this project's history was looking for the
+   wrong code pattern entirely.
+2. The function's real entry point is a different address than the one
+   this project had been citing as "the `EXEC_REG_OPS` handler" since an
+   earlier round — the old address was a point mid-function, not the real
+   boundary, which is why prior reference lookups silently missed it.
+3. That function makes 44 calls. **All 44 are indirect** (`jalr` through a
+   register, zero direct `jal`); only 3 resolve to anything nameable at
+   all, and those 3 are generic logging/assert infrastructure, not
+   per-regType dispatch. The remaining ~41 are genuinely unresolvable by
+   static analysis as found.
+4. **A further round surfaced a real open discrepancy, reported honestly
+   rather than papered over:** a fresh reference search for the address
+   that originally anchored this function's identification as `EXEC_REG_OPS`
+   found *zero* references to it anywhere in the firmware, and the one
+   place that literal value appears in the raw binary sits at a
+   non-instruction-boundary offset (a coincidental byte match, not a real
+   pointer). Net: either this function isn't actually the client-facing
+   `EXEC_REG_OPS` handler and the real one hasn't been found yet, or it is,
+   and the real call path reaches it only through a genuinely indirect
+   object-vtable call a plain reference search can't follow. A follow-up
+   attempt at manually matching the vtable installer for that call pattern
+   found ~220 corpus-wide hits for the relevant offset — too noisy to
+   narrow without a much larger manual effort, not completed.
+
+**This sharpens exactly why static analysis can't find the base address**
+(a specific, now-identified class of unresolvable indirect dispatch, plus
+an unresolved identification question on top of it) rather than leaving it
+a vague, open-ended mystery. The real next step needs live execution
+tracing — a tool this project does not have.
+
+**Status: ⚠️ Partial / sharpened dead end — 90%.** Infrastructure and
+methodology are now as far as static analysis alone can take this; the
+array's base address itself remains unknown.
+
 ## Tools
 
 - [`tools/persm_channel_probe.c`](tools/persm_channel_probe.c) — the full

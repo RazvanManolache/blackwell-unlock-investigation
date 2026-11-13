@@ -127,6 +127,46 @@ produces anything beyond the individual clean negatives already found.
 
 **Status: ❌ Confirmed negative — 100%.**
 
+## 11d. Shipped-binary registry-string candidates (update 2026-11-12/13)
+
+**Objective:** the 667-key list used everywhere above was extracted from
+GSP-RM's own firmware. The host-side *driver binary itself* (the shipped,
+compiled `.o`, not just the public open-source tree) can contain additional
+registry keys with zero trace in public headers — a pattern already
+confirmed elsewhere in this project (an undocumented RPC command existed in
+the real binary with nothing in the matching public source). Worth the same
+check for registry strings.
+
+**Method:** pulled the real shipped closed RM object (`nv-kernel.o_binary`)
+across three actual driver versions, extracted `.rodata`-only strings (a
+naive whole-binary grep would also match unrelated symbol-table names in
+this unstripped object) shaped like `Rm*`/`RM*` registry keys, and diffed
+against the existing 667-key list and the public `nv-reg.h` header.
+
+**Result: 180 real candidate strings exist in the shipped binary that
+aren't in either comparison source.** Two clusters stood out by name:
+
+- A GSP log/trace group: `RmGspLogBufferSizeTaskInit`,
+  `RmGspLogBufferSizeTaskIntr`, `RmGspLogBufferSizeTaskMnoc`,
+  `RmGspLogBufferSizeTaskRm`, `RmGspTraceCrashLogging`.
+- A MIG group, including one previously-unseen sibling key,
+  `RmMIGBootConfigurationCIAssignment`.
+
+**Live-tested in a later session:** every key in both named clusters
+(including the untruncated form of `RmMIGBootConfigurationFeatureFlags`,
+already known from the main sweep — not a new test) was confirmed
+transmitted and produced a clean negative — booted clean,
+`FEAT_OVR_PLM`/`SS0`/`SS1` byte-identical to stock, zero Xid, for every
+single key. One additional named candidate, `RmGspBootInitialShift=1`, was
+also tested the same way: clean negative.
+
+**Status: ❌ Confirmed negative on the named/actionable subset — 100%ᵃ.**
+ᵃ The broader 180-item candidate list itself wasn't preserved past the
+session that extracted it, so the untested remainder (names not matching an
+obvious functional category) would need re-extracting from the shipped
+binary to pursue further — a cheap, purely mechanical re-run, not a new
+technique.
+
 ## See also
 
 - [10 — registry override: SmSpeedSelect](../10-registry-override-smspeedselect/README.md) (the demand-logger oracle this sweep reuses)

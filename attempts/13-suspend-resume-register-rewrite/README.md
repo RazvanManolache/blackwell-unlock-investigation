@@ -97,8 +97,45 @@ disables a Chain-of-Trust boot step entirely — same risk category as
 [attempt 11b](../11-registry-key-sweep-acr-cluster/README.md#11b-acr-cluster)),
 possibly worse. Needs the GPU owner's own explicit go-ahead before testing.
 
-**Status: ⚠️ Partial — 40%.** Real tracing progress, the mailbox itself not
-yet identified.
+**Update (2026-11-12/13) — the specific channel-handle-global lead is
+closed; the broader question gets strong outside corroboration.** An
+exhaustive, corpus-wide cross-reference check (not just the one function
+examined originally) found **zero writes anywhere** to all four
+previously-flagged channel-handle globals, across every cross-reference and
+every caller — a clean negative. These are very likely compile-time
+constants, not a runtime handoff structure; that specific candidate is
+closed. A deeper raw-disassembly pass (not decompile) on the surrounding
+material found the same "zero `FEAT_OVR`/`SS0`/`SS1` references" result yet
+again — now the fourth independent clean negative at this depth, and a
+precisely-pinned dead end rather than a vague one.
+
+Separately, a 34-script live-hardware test harness from prior-art research
+(`dh-toolkit/`, not part of this project's own tooling) was found to contain
+scripts aimed at exactly this item's core question (`fmc_oracle.sh`,
+`wpr_oracle.sh`, `sig_oracle.sh`, `boot_tamper_run.sh`) — not yet run here
+(would need porting from a different chip family's source files, and sits
+in a risk tier needing the GPU owner's own explicit go-ahead per script).
+More importantly: this exact question — host-supplied boot-descriptor
+tampering before FSP consumes it — turns out to have **already been
+measured on real Blackwell silicon** by independent prior-art research (two
+RTX 5090s, same GB20x family): seventeen structured error codes,
+authentication enforced at every attempt, no exploit found. Not
+independently reproduced on this project's own exact die/driver
+combination, but the same architectural mechanism (FSP's root of trust
+cryptographically validates boot descriptors) is very unlikely to differ —
+strong outside corroboration of a clean negative, not a new unresolved
+question.
+
+A registry key with a name suggesting an irreversible factory fuse-burn
+test routine (`RMRunFub`) was found adjacent to this thread during tracing
+and was explicitly **not tested — the GPU owner's own decision, not a
+technical blocker.**
+
+**Status: ⚠️ Partial, now a bounded dead end rather than an open question —
+70%.** The specific handoff-structure candidate is closed; the broader
+"can a host-supplied boot input be tampered with before FSP trusts it"
+question has strong real-world corroboration of "no," on this same chip
+family, even without a from-scratch reproduction on this exact die.
 
 ## 13d. resume-handler-patch
 
@@ -147,7 +184,36 @@ this project's exact running driver version (595.99.02): locate the copy
 site, diff the struct layout against the version it was originally
 demonstrated on.
 
-**Status: ⏸️ Not started — 0%.** Pure static work, not yet done.
+**Update (2026-11-12) — the design work turned out to already exist.**
+Rather than needing to design a mutation from scratch, a prior-art
+researcher's own driver-source tree (used elsewhere in this project) turned
+out to already carry a working field-isolated mutation harness for exactly
+this struct — a build-time `VARY`/`VALUE` pair plus a switch statement
+injected right after the host builds the resume-metadata structure,
+overriding one named field at a time (magic, revision, declared size, a
+page-table address either absolute or as a delta, or a flags word) after
+the rest of the structure is already built, with a diagnostic print of
+every field plus the active override right before the value is handed to
+GSP. This covers every field this item originally wanted a mutation
+designed for.
+
+The only remaining gap was that this harness lived in an older reference
+driver-source tree, not the exact version this project's own live
+environment actually runs. That gap is now closed too: the harness's patch
+was diffed against its own stock baseline, confirmed purely additive with
+no surrounding-line changes, and re-applied cleanly to the exact driver
+version this project's live session runs — verified three independent
+ways (a real patch-apply dry run, and byte-for-byte diffs of both inserted
+blocks against the original). The resulting patch is ready to build and
+run with no version downgrade needed.
+
+**Status: 🔬 Design and porting complete, live test not yet run — 90%.**
+This is now the single highest-priority *untested* lever in this entire
+project: picking one field variant, rebuilding the driver with this patch
+applied, cycling suspend/resume, and reading `SS0`/`SS1` back before and
+after is a concrete, ready-to-execute test of the actual resume-rewrite
+mechanism this whole thread exists to explain — not yet attempted as of
+this writing.
 
 ## 13i. ss-input-writers-fuse-callers
 

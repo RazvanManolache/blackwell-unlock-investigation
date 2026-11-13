@@ -51,12 +51,16 @@ noise, not progress — this criterion is enforced mechanically throughout
 (`verdict.py`, see `attempts/01-baseline-capture-and-write-gate/tools/`), not
 left to a prose judgment call that could drift.
 
-**Worth stating plainly:** a GitHub code search for the literal register
-names `FEAT_OVR_PLM` and `FEAT_OVR_SM_SS` returns **zero results** anywhere
-on GitHub as of this writing. This project, and the handful of prior-art
-repos it draws on (below), are working without published precedent on the
-exact mechanism — there is no known public write-up of someone defeating
-this specific gate.
+**Worth stating plainly:** a GitHub code search for `FEAT_OVR_SM_SS0`/`SS1`
+by name still returns zero results anywhere outside this project's own
+work, as of this writing — but `FEAT_OVR_PLM` and the literal address
+`0x00823804` *do* appear verbatim in one prior-art repo's own README
+([phiraml/gpu-unlock-blackwell](https://github.com/phiraml/gpu-unlock-blackwell),
+already credited below), discovered partway through this project. That
+repo reaches the same place this one does — the register exists, the gate
+is closed, no published write-up anywhere defeats it — so the *finding*
+is unchanged; only the "nobody else has even named this register" framing
+was too strong and is corrected here.
 
 ## Legend
 
@@ -114,13 +118,13 @@ project so far, not an omission.
 | 13i | Enumerate every writer of the stored-override context offsets | ❌ | 100% | [13](attempts/13-suspend-resume-register-rewrite/README.md#13i-writers-sweep) |
 | 14a | Full GSP-RM RPC fuzzing campaign (fuzz_harness, 56+ live attempts) | ⚠️ | 85% | [14](attempts/14-rpc-audit-undocumented-commands/README.md#14a-rpc-fuzzing) |
 | 14b | `GC6_ENTRY`'s 12-vs-20-byte size mismatch | ⚠️ | 80% | [14](attempts/14-rpc-audit-undocumented-commands/README.md#14b-gc6-entry) |
-| 14c | Patch the host export-table flags to make unreachable commands reachable | ⚠️ | 60% | [14](attempts/14-rpc-audit-undocumented-commands/README.md#14c-export-table-patch) |
+| 14c | Patch the host export-table flags to make unreachable commands reachable, then live-test `GC6_ENTRY`/`GC6_EXIT` through it (two separately-authorized escalations, incl. a real GC6 power-state attempt) | ❌ | 100% | [14](attempts/14-rpc-audit-undocumented-commands/README.md#14c-export-table-patch) |
 | 14d | Kernel-privileged RM client instead of a userspace one | ❌ | 90% | [14](attempts/14-rpc-audit-undocumented-commands/README.md#14d-kernel-client) |
 | 14e | Decode the remaining reachable-command flags; LD_PRELOAD ioctl trace of ordinary tool use | ⚠️ | 95% | [14](attempts/14-rpc-audit-undocumented-commands/README.md#14e-flags-and-trace) |
 | 14f | strace the driver load for host-file-open override candidates | ❌ | 100% | [14](attempts/14-rpc-audit-undocumented-commands/README.md#14f-strace-surface) |
 | 15 | FLR + BAR0 write race with the driver unbound (is the PLM re-close hardware-timed or GSP-driven?) | ⚠️ | 60% | [15](attempts/15-flr-race-timing/README.md) |
 | 16 | Force the legacy GSP-free CPU-RM path and retest everything there | ❌ | 100% | [16](attempts/16-gsp-free-cpu-rm-path/README.md) |
-| 17 | GSP firmware signature oracle (single-byte flip, accept vs. reject) | 🚫 | 0% | [17](attempts/17-firmware-signature-oracle-parked/README.md) |
+| 17 | GSP firmware signature oracle (single-byte flip, accept vs. reject) — later run with the owner's explicit go-ahead | ❌ | 100% | [17](attempts/17-firmware-signature-oracle-parked/README.md) |
 | 18a | VBIOS devinit-table override (the flagged edit half) | 🚫 | 0% | [18](attempts/18-vbios-devinit/README.md#18a-devinit-override-parked) |
 | 18b | Read-only VBIOS dump — does a host-visible pre-GSP init table even exist on GB203? | ❌ | 100% | [18](attempts/18-vbios-devinit/README.md#18b-readonly-premise-check) |
 | 19 | Voltage/clock-margin fault injection timed against the PL3 check | 🚫 | 0% | [19](attempts/19-voltage-fault-injection-parked/README.md) |
@@ -130,7 +134,14 @@ project so far, not an omission.
 | 22 | Find the cheapest event that re-triggers the registry read (gpu-reset vs. reload vs. resume vs. reboot) | ⏸️ | 0% | [22](attempts/22-cheapest-retrigger-ladder/README.md) |
 | 23 | Power-limit accept-vs-ignore canary (does `nvidia-smi -pl` apply cleanly or silently no-op?) | ❌ | 100% | [23](attempts/23-power-limit-canary/README.md) |
 | 24 | FSP/COT scratch-register boot-state timeline | ⚠️ | 60% | [24](attempts/24-fsp-cot-scratch-registers/README.md) |
-| 25 | FMC/FSP parser heap-size field (the one non-signature-checked input) | ⏸️ | 0% | [25](attempts/25-fmc-parser-heap-size/README.md) |
+| 25 | FMC/FSP parser heap-size field (the one non-signature-checked input) | ❌ | 100% | [25](attempts/25-fmc-parser-heap-size/README.md) |
+| 26 | First SASS-level, driver-API-independent empirical measurement of the tensor-rate cap, cross-validated on two operating systems | 🔬 | 100% | [26](attempts/26-sm120-empirical-benchmark/README.md) |
+| 27 | Second round of static firmware infrastructure work (exhaustive RPC-handler register-write scan, corrected RISC-V re-disassembly, per-ELF firmware split, device-ID classifier trace) | 🔬 | 100% | [27](attempts/27-firmware-infrastructure-round2/README.md) |
+| 28 | Registry-key strings extracted from the actual shipped binary (not just public source) across 3 driver versions; firmware enforcement diffed across the same versions | 🔬 / ❌ | 100% | [28](attempts/28-shipped-binary-registry-extraction/README.md) |
+| 29 | Static code-smell audit of NVIDIA's own FSP boundary code, then standalone sanitizer fuzzing of the real functions | 🔬 | 100% | [29](attempts/29-fsp-code-smell-audit-and-fuzzing/README.md) |
+| 30 | Bit-level fuse differential (capped vs. uncapped same-silicon part) and FMC signing-key/firmware fingerprint | 🔬 | 100% | [30](attempts/30-pro6000-fuse-bitdiff-and-key-fingerprint/README.md) |
+| 31 | Second round of checking tracked/new third-party repos for updates or new angles | 🔬 | 100% | [31](attempts/31-cross-repo-sweep-round2/README.md) |
+| 32 | A found third-party boot-tamper test harness — catalogued, two safe scripts run live, highest-risk scripts deliberately left unattempted (already answered elsewhere on the same die family) | ⚠️ | 70% | [32](attempts/32-dhtoolkit-boot-tamper-harness/README.md) |
 
 ## Infrastructure built along the way
 
@@ -187,12 +198,15 @@ project is not affiliated with any of them.
 | [b00nz/mVolt](https://github.com/b00nz/mVolt) | b00nz | A closed-source but well-documented third-party voltage/power-limit override tool for this same GPU family — its host-persisted, consumed-at-reinit override mechanism is a useful structural parallel to this project's own registry-override theory |
 | [NVIDIA/open-gpu-kernel-modules](https://github.com/NVIDIA/open-gpu-kernel-modules) | NVIDIA | NVIDIA's own open-source kernel driver — primary source for every host-side gate, struct layout, and export-table check this project relied on, and the base for every locally-patched/rebuilt driver used in testing |
 
-**No known public precedent exists for the exact mechanism this project
-targets.** A GitHub code search for the literal strings `FEAT_OVR_PLM` and
-`FEAT_OVR_SM_SS` returns zero results anywhere on GitHub outside this
-project's own work — everything above establishes the surrounding
-architecture and prior technique family, not a solved version of this
-specific problem.
+**No known public precedent exists for a *solved* version of this exact
+mechanism.** `FEAT_OVR_SM_SS0`/`SS1` by name still return zero GitHub
+results outside this project's own work, but `FEAT_OVR_PLM` is independently
+named in `phiraml/gpu-unlock-blackwell`'s own README (credited above) —
+that project reaches the identical conclusion this one does: the register
+is real, the PL3 gate is closed, and nobody has published a way past it.
+Everything in the table above establishes the surrounding architecture and
+prior technique family; none of it, here or elsewhere, is a solved version
+of this specific problem.
 
 ## Safety and ethics
 
@@ -205,26 +219,41 @@ every attempt), and anything that produced a confirmed-bad GPU state was
 recovered via a full PCI-level reset or power cycle, never pushed further
 in the same session.
 
-A small number of avenues were deliberately **not attempted**, flagged
-throughout as needing the GPU owner's own explicit go-ahead rather than
-being executed on an AI coding agent's own initiative:
+A small number of avenues were, for most of this project's duration,
+deliberately **not attempted** without the GPU owner's own separate,
+explicit go-ahead rather than being executed on an AI coding agent's own
+initiative. Two of them were later run, on exactly that basis, once the
+owner gave that go-ahead for each specifically — noted below rather than
+silently moved, since the *reasoning* for treating them as a distinct,
+higher-authorization tier still applies to anyone considering the same
+step:
 
 - **Firmware-signature acceptance testing** (flipping a byte in a copy of
   the extracted GSP firmware and seeing whether the driver accepts or
   rejects it) — rejection is harmless, but acceptance would mean altered
   code executing on a privileged RISC-V core with no established recovery
-  story.
+  story. **Later run with explicit authorization** (attempt 17): clean
+  hard rejection, no exploit — the risk this gate existed to prevent never
+  materialized, but it was a real risk at the time of the decision, not a
+  formality.
+- **Live `GC6_ENTRY`/`GC6_EXIT` invocation** — a real GPU deep-sleep
+  power-rail-gating transition whose exit path depends on laptop-style
+  platform firmware support a desktop board has never been validated for.
+  **Later run with explicit authorization, in two separate escalating
+  steps** (attempt 14c): reachability confirmed first, then an actual
+  power-state transition attempted, which failed cleanly because this
+  board's firmware has no relevant ACPI method at all — a hardware/platform
+  limitation, not a privilege block, and not the kind of failure mode that
+  risks the card.
 - **Registry keys whose names suggest an irreversible factory routine**
   (a fuse-burn test routine, a debug-fuse-only binary path) — irreversible
-  by definition if real.
+  by definition if real. Still not attempted.
 - **VBIOS devinit-table modification** — real hard-brick potential, no
-  tested recovery path exists for this card.
+  tested recovery path exists for this card. Still not attempted.
 - **Voltage/clock-margin fault injection** — genuine glitching against the
   owner's own desktop GPU, categorically different from a bounded,
   vendor-demonstrated offset adjustment, with no established recovery path.
-- **Live `GC6_ENTRY` invocation** — a real GPU deep-sleep power-rail-gating
-  transition whose exit path depends on laptop-style platform firmware
-  support a desktop board has never been validated for.
+  Still not attempted.
 
 Where voltage- or power-limit-adjacent experiments *were* run (the
 power-limit canary, the mVolt+ precedent study), they stayed within ranges

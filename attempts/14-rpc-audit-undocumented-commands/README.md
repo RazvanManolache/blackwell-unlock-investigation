@@ -85,17 +85,80 @@ compiles itself. Test whether flipping one command's flags to `0x48`
 (`ROUTE_TO_PHYSICAL|NON_PRIVILEGED`) in a local driver build, then
 rebuilding and retesting, actually changes reachability.
 
-**Result:** `CE_GET_CE_PCE_MASK` was resolved separately (bad input value,
-see 14a) — no patch needed there. `GC6_ENTRY`'s real implementation (see
-14b) was found to be a genuine hardware power-state transition, not a safe
-stub — flagged for the GPU owner's own go-ahead before ever sending the
-live call. The flag-patch-and-rebuild half is safe/reversible and could be
-prepared in advance, but wasn't done speculatively since it's only useful
-as a precursor to a call that isn't yet authorized.
+**Result, phase 1 (prep):** `CE_GET_CE_PCE_MASK` was resolved separately
+(bad input value, see 14a) — no patch needed there. `GC6_ENTRY`'s real
+implementation (see 14b) was found to be a genuine hardware power-state
+transition, not a safe stub. The flag patch itself (`0x2`→`0x48`) was
+applied to a local driver build and verified landed correctly in the
+compiled `.o` by locating the method's literal ID and reading the real
+`NVOC_EXPORTED_METHOD_DEF` struct fields — but the module was saved
+unloaded, pending the GPU owner's own separate, specific go-ahead before
+sending the live call this patch would enable.
 
-**Status: ⚠️ Partial — 60%.** One of two targeted commands resolved by a
-different route; the other's patch is unbuilt pending authorization for the
-live call it would enable.
+**Result, phase 2 (live, explicit separate authorization obtained):**
+with that go-ahead given, loaded the patched module (`nvidia` cleanly
+unloaded first, `lsmod` confirmed refcount 0; the display was running
+entirely off the platform's integrated GPU at the time, so no live
+desktop session was at risk) and sent `GC6_ENTRY` with `flavorId=0,
+stepMask=0` — the documented early-return case. Result: `NV_ERR_INVALID_
+ARGUMENT` (`0x1f`), not `NV_ERR_INSUFFICIENT_PERMISSIONS` (`0x1b`) or an
+object-lookup failure — confirming the host-side flags gate really was
+the only thing standing between "unreachable" and "reachable" here; the
+command's own firmware-side validation is what rejected the deliberately
+trivial params. No GC6 state transition occurred (by design — `stepMask=0`
+never reaches the real power-off body). BAR0 readback and GPU health
+(temperature/power/pstate, `dmesg`/Xid) were byte-identical before and
+after; the patched module was then unloaded and the stock, signed driver
+reloaded and re-verified against baseline.
+
+**Result, phase 3 (the real GC6 transition, a separately and explicitly
+authorized escalation beyond phase 2):** with a second, specific go-ahead
+given after the real risk was explained plainly (GC6 *exit* depends on
+platform firmware coordination this desktop board had never been
+validated for, and a bad hang could take the whole session down with the
+GPU), sent `stepMask=0x2` (`GC6_STEP_ID_GPU_OFF`) — the real body of the
+transition. Before sending anything: scanned this board's entire ACPI
+firmware table set for the NVIDIA `JT _DSM` UUID the real power-off path
+calls into — **zero hits anywhere**; this board's firmware defines no such
+method for this GPU at all. Patched `GC6_EXIT`'s flags too, as a software
+recovery path that existed *before* sending entry, not improvised after.
+Result: `GC6_ENTRY` returned the identical `0x1f` as phase 2 — the real
+power-off body was rejected before ever reaching the ACPI call — and
+`GC6_EXIT` returned a trivial `NV_OK` (no-op, since entry never got far
+enough to need exiting). GPU health and BAR0 state were byte-identical
+before/after; fully reverted to stock afterward.
+
+A follow-up pass tried to trace the exact line producing `0x1f`, and
+hit two independent, informative dead ends rather than an answer: (1) this
+driver/chip combination is mandatorily GSP-firmware-offloaded, so a
+`ROUTE_TO_PHYSICAL` control executes on NVIDIA's own signed, closed GSP
+binary — not something a host can single-step; the closed `gsp_log`
+symbol package needed to decode its internal log for this exact driver
+version isn't installed, and wasn't sourced speculatively. (2) Direct
+source instrumentation confirmed this release build compiles every
+internal diagnostic print in the entire driver — including this function's
+own pre-existing error messages — to a no-op, since none of the flags that
+enable them are defined in a non-debug build. Pinning the exact rejection
+line would need either NVIDIA's own closed debug symbols or a DEBUG/QA
+driver build, neither available nor worth pursuing speculatively. This
+doesn't weaken the real conclusion, which rests on independent evidence
+that doesn't need the exact line (the ACPI scan, plus matching failures
+already visible in the driver's own boot log).
+
+**Conclusion:** this desktop board cannot be driven into a real GC6 power
+state through this path — not "blocked, try again later" but a genuine
+platform characteristic (no ACPI JT method exists in this board's firmware
+at all). The host-side flags gate for `GC6_ENTRY`/`GC6_EXIT` is confirmed
+real and is exactly what it appeared to be — a software reachability gate,
+not a disguised safety mechanism — but removing it doesn't open a path to
+anything on this hardware. No observable side effect of any kind was left
+behind at any phase; GPU health, BAR0 register state, and driver behavior
+were re-verified identical to baseline after every single step.
+
+**Status: ❌ Confirmed negative — 100%.** Both halves of this command
+fully resolved on real hardware with the GPU owner's own explicit,
+staged authorization at each escalation — not a partial or inferred
+result.
 
 ## 14d. Kernel-privileged RM client
 

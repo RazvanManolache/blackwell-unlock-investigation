@@ -19,26 +19,50 @@ independent of the hardware fuse logic (`FEAT_OVR_PLM` itself is proven
 identical across every die measured — that part won't move; it's the
 registry-read/ACR/priv-sec decision logic *around* it that might).
 
-## Method (planned, not yet run)
+## Method
 
-Pull Blackwell-generation GSP-RM blobs from several other driver releases
-using the same extraction approach already working for firmware/signature
-pairs elsewhere in this project. Start cheap: binary-diff the fwimage blobs
-directly, and only decompile the specific already-known function regions
-(the ACR cluster's shared config function, the SmSpeedSelect read site) in
-any version that differs there at all — not a full re-decompile per
-version.
+Pulled real GSP-RM firmware blobs (`gsp_ga10x.bin`) from three actual
+driver releases spanning the exact window where the unrelated mVolt+ gate
+is independently known to have drifted (see [attempt 20](../20-mvolt-plus-precedent-study/README.md)).
+Per this item's own instruction not to re-decompile per version unless
+something differs, the cheap first pass was a literal-string presence/count
+check: the nine ACR/priv-sec registry-key strings
+(`RmAllowPrivSecDisabled`, `RMDisableAcr`, `RMAcrExecuteOnSec2`,
+`RmBootFromHs`, `RMEnableAcrRiscv`, `RmSwapAcrRegions`, `RmUseAutoAcr`,
+`RmAcrSigningAlgo`, `RMDevidCheckIgnore`) plus `SmSpeedSelect`, across all
+three firmware blobs.
 
-A clean "identical in every version checked" result would still be a
-useful, reportable negative: it would confirm the hardware fuse gate is
-doing 100% of the work and no amount of driver-version shopping helps. Any
-version-to-version drift in that specific region would be the first
-version-dependent lead in the whole project.
+## Result
+
+**Identical in every version checked.** Every one of the nine ACR/priv-sec
+keys appears exactly once, and `SmSpeedSelect` exactly twice, byte-for-byte
+the same count, in all three driver releases spanning that window.
+`FEAT_OVR` as a literal string: zero hits in all three — consistent with it
+being a compiled constant rather than a string anywhere, matching this
+project's findings elsewhere.
+
+**Side-finding, not a security change:** the firmware file itself shrank
+noticeably release to release — explained by a packaging split (a new
+sibling file split out of the main firmware image starting at one of the
+later versions), not by anything being removed from the GSP-RM logic
+itself. Worth knowing before anyone diffs raw file sizes alone and jumps to
+a conclusion.
+
+**Caveat stated plainly:** string presence/count is a coarser signal than
+a full decompile of the relevant function region in each version (which
+this item's own method explicitly deferred unless a difference showed up).
+A real behavioral change that keeps the same strings — e.g. a tightened
+comparison inside the same function — would not be caught by this method.
+The next, still-static step if anyone wants to go deeper is a targeted
+decompile of just the ACR-cluster function region in each version, not a
+full re-run.
 
 ## Status
 
-**⏸️ Not started — 0%.** Static/binary-diff work, no hardware required
-until (if ever) a live difference needs confirming.
+**❌ Confirmed negative — 90%.** No version-dependent weakening found for
+this specific mechanism across the span checked. Not 100%, since the
+method used (string presence) is coarser than the full decompile comparison
+this item originally specified.
 
 ## See also
 
